@@ -1,50 +1,80 @@
-from pathlib import Path
-from loaders import CustomLoader  # or from .loaders if you're running inside the same module
-import logging
+import os
+from typing import List
+from langchain_core.documents import Document
+from loaders import Loaders
+from loaders import OracleSQLLoader
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
-def process_folder(folder_path: str):
-    data_dir = Path(folder_path).expanduser().resolve()
+class Ingestor:
+    """
+    A class to ingest documents from various file sources in a directory.
+    """
 
-    if not data_dir.exists() or not data_dir.is_dir():
-        raise ValueError(f"Path is not a valid directory: {data_dir}")
+    def __init__(self, data_directory: str):
+        """
+        Initializes the Ingestor with the path to the data directory.
 
-    supported_exts = {
-        ".pdf": "pdf_loader",     
-        ".csv": "csv_loader",
-        ".html": "html_loader",
-        ".htm": "html_loader",
-    }
+        Args:
+            data_directory (str): The path to the directory containing files to ingest.
+        """
+        self.data_directory = data_directory
+        self.supported_extensions = {
+            ".pdf": "pdf_loader",
+            ".csv": "csv_loader",
+            ".html": "html_loader",
+        }
 
-    all_documents = []
+    def ingest_all(self) -> List[Document]:
+        """
+        Iterates through all files in the specified directory, loads them using the
+        appropriate loader based on file extension, and returns a list of Documents.
+        """
+        all_docs = []
+        print(f"Scanning directory: {self.data_directory}")
 
-    for file_path in data_dir.iterdir():
-        if not file_path.is_file():
-            continue
+        for filename in os.listdir(self.data_directory):
+            filepath = os.path.join(self.data_directory, filename)
+            if not os.path.isfile(filepath):
+                continue
 
-        ext = file_path.suffix.lower()
-        if ext not in supported_exts:
-            logger.warning(f"Skipping unsupported file type: {file_path.name}")
-            continue
+            file_ext = os.path.splitext(filename)[1].lower()
 
-        try:
-            loader = CustomLoader(file_path)
-            method_name = supported_exts[ext]
-            method = getattr(loader, method_name)
-            docs = method()  # call loader method dynamically
-            all_documents.extend(docs)
-            logger.info(f"Loaded {len(docs)} docs from {file_path.name}")
+            if file_ext in self.supported_extensions:
+                print(f"-> Found supported file: {filename}")
+                try:
+                    loader_instance = Loaders(filepath=filepath)
+                    loader_method_name = self.supported_extensions[file_ext]
+                    loader_method = getattr(loader_instance, loader_method_name)
+                    docs = loader_method()
+                    all_docs.extend(docs)
+                    print(f"  - Successfully loaded {len(docs)} document chunk(s) from {filename}")
+                except Exception as e:
+                    print(f"  - ERROR loading {filename}: {e}")
+            else:
+                print(f"-> Skipping unsupported file: {filename}")
 
-        except Exception as e:
-            logger.error(f"Error processing {file_path.name}: {e}")
-            continue
-
-    logger.info(f"Loaded total {len(all_documents)} documents from folder.")
-    return all_documents
+        return all_docs
 
 
 if __name__ == "__main__":
-    processed_data = process_folder("./data/raw")
-    print(processed_data)
+    # This assumes the script is run from the project's root directory
+    RAW_DATA_PATH = os.path.join("./", "data", "raw")
+
+    ingestor = Ingestor(data_directory=RAW_DATA_PATH)
+    documents = ingestor.ingest_all()
+
+    print(f"\nTotal document chunks ingested: {len(documents)}")
+    if documents:
+        print(f"\n--- Sample of the first ingested document ---")
+        print(documents)
+        
+        
+    sql_loader = OracleSQLLoader(
+        user="dummy_user",
+        password="123456",
+        dsn="localhost:1521/XEPDB1",
+        query="SELECT * FROM rag_documents"
+    )
+    
+    print(sql_loader.load())
+
