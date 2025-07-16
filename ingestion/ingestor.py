@@ -3,6 +3,8 @@ from typing import List
 from langchain_core.documents import Document
 from loaders import Loaders
 from loaders import OracleSQLLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
 
 
 class Ingestor:
@@ -10,7 +12,7 @@ class Ingestor:
     A class to ingest documents from various file sources in a directory.
     """
 
-    def __init__(self, data_directory: str):
+    def __init__(self, data_directory: str, chunk_size: int = 500, chunk_overlap: int = 100):
         """
         Initializes the Ingestor with the path to the data directory.
 
@@ -23,11 +25,17 @@ class Ingestor:
             ".csv": "csv_loader",
             ".html": "html_loader",
         }
+        
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap
+        )
 
     def ingest_all(self) -> List[Document]:
         """
         Iterates through all files in the specified directory, loads them using the
-        appropriate loader based on file extension, and returns a list of Documents.
+        appropriate loader, then further splits each Document into smaller, overlapping
+        chunks before returning the full list.
         """
         all_docs = []
         print(f"Scanning directory: {self.data_directory}")
@@ -42,12 +50,20 @@ class Ingestor:
             if file_ext in self.supported_extensions:
                 print(f"-> Found supported file: {filename}")
                 try:
-                    loader_instance = Loaders(filepath=filepath)
+                    loader_instance    = Loaders(filepath=filepath)
                     loader_method_name = self.supported_extensions[file_ext]
-                    loader_method = getattr(loader_instance, loader_method_name)
-                    docs = loader_method()
-                    all_docs.extend(docs)
-                    print(f"  - Successfully loaded {len(docs)} document chunk(s) from {filename}")
+                    loader_method      = getattr(loader_instance, loader_method_name)
+
+                    # 1) load raw Documents
+                    raw_docs    = loader_method()
+                    # 2) apply second‐level chunking
+                    chunked_docs = self.text_splitter.split_documents(raw_docs)
+
+                    all_docs.extend(chunked_docs)
+                    print(
+                        f"  - Loaded {len(raw_docs)} raw docs, "
+                        f"chunked into {len(chunked_docs)} pieces from {filename}"
+                    )
                 except Exception as e:
                     print(f"  - ERROR loading {filename}: {e}")
             else:
@@ -56,8 +72,8 @@ class Ingestor:
         return all_docs
 
 
+
 if __name__ == "__main__":
-    # This assumes the script is run from the project's root directory
     RAW_DATA_PATH = os.path.join("./", "data", "raw")
 
     ingestor = Ingestor(data_directory=RAW_DATA_PATH)
@@ -67,14 +83,4 @@ if __name__ == "__main__":
     if documents:
         print(f"\n--- Sample of the first ingested document ---")
         print(documents)
-        
-        
-    sql_loader = OracleSQLLoader(
-        user="dummy_user",
-        password="123456",
-        dsn="localhost:1521/XEPDB1",
-        query="SELECT * FROM rag_documents"
-    )
-    
-    print(sql_loader.load())
 

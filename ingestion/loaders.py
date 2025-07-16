@@ -31,7 +31,7 @@ class Loaders:
         return docs
     
 class OracleSQLLoader:
-    def __init__(self, user, password, dsn, query):
+    def __init__(self, user ="dummy_user", password ="123456", dsn="localhost:1521/XEPDB1", query ="SELECT * FROM rag_documents"):
         self.user = user
         self.password = password
         self.dsn = dsn  # Example: "localhost:1521/XEPDB1"
@@ -65,16 +65,4 @@ class OracleSQLLoader:
     
 
 
-if __name__ == "__main__":
-    print("\n-----------------------------------------------------------------")
-    # my_loader = Loaders("./data/raw/demo.pdf")
-    # print(my_loader.pdf_loader())
-    
-    # sql_loader = OracleSQLLoader(
-        # user="dummy_user",
-        # password="123456",
-        # dsn="localhost:1521/XEPDB1",
-        # query="SELECT * FROM rag_documents"
-    # )
-    
-    # print(sql_loader.load())
+
