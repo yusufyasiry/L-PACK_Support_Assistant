@@ -34,7 +34,7 @@ class OracleSQLLoader:
     def __init__(self, user ="dummy_user", password ="123456", dsn="localhost:1521/XEPDB1", query ="SELECT * FROM rag_documents"):
         self.user = user
         self.password = password
-        self.dsn = dsn  # Example: "localhost:1521/XEPDB1"
+        self.dsn = dsn
         self.query = query
 
     def load(self) -> List[Document]:
@@ -62,7 +62,4 @@ class OracleSQLLoader:
         cursor.close()
         connection.close()
         return documents
-    
-
-
 

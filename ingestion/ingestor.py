@@ -9,7 +9,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 class Ingestor:
     """
-    A class to ingest documents from various file sources in a directory.
+    A class to ingest documents from various file sources in a directory embed them and load to a database.
     """
 
     def __init__(self, data_directory: str, chunk_size: int = 500, chunk_overlap: int = 100):
@@ -83,4 +83,3 @@ if __name__ == "__main__":
     if documents:
         print(f"\n--- Sample of the first ingested document ---")
         print(documents)
-
